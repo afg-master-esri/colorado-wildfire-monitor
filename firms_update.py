@@ -1,7 +1,4 @@
-Tienes razón. Los tengo todos en esta conversación. Vamos uno por uno, empezando por el que más probabilidad tiene de ser el correcto.
-Este es el script del momento exacto que funcionó — cuando el run tardó 2m 47s y mostró 15+ focos. Edita en GitHub:
-👉 github.com/afg-master-esri/colorado-wildfire-monitor/edit/main/firms_update.py
-Borra todo y pega esto:
+
 pythonimport requests, json, datetime, os, time
 
 NASA_API_KEY  = os.environ["NASA_FIRMS_API_KEY"]
