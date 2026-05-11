@@ -9,8 +9,7 @@ CO_BBOX = "-109.060253,36.992426,-102.041524,41.003444"
 
 # Exactamente las mismas fuentes que NASA FIRMS visor en modo 2 DAYS
 # Landsat [30m] + VIIRS (S-NPP, NOAA-20 & NOAA-21) [375m] + MODIS [1km]
-FIRMS_SOURCES = [
-    ("LANDSAT_NRT",      "Landsat 30m",      2),
+FIRMS_SOURCES = [("LANDSAT_NRT",      "Landsat 30m",      2),
     ("VIIRS_SNPP_NRT",   "VIIRS S-NPP",      2),
     ("VIIRS_NOAA20_NRT", "VIIRS NOAA-20",    2),
     ("VIIRS_NOAA21_NRT", "VIIRS NOAA-21",    2),
