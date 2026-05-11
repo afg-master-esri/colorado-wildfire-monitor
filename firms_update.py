@@ -14,41 +14,30 @@ CO_BBOX_GEOM = "-109.060253,36.992426,-102.041524,41.003444"
 CO_LAT_MIN, CO_LAT_MAX = 36.99, 41.01
 CO_LON_MIN, CO_LON_MAX = -109.07, -102.04
 
-# Feature Services oficiales NASA FIRMS
-# Exactamente los mismos que usa el visor firms.modaps.eosdis.nasa.gov
-NASA_SERVICES = [
-    {
-        "nombre": "VIIRS S-NPP NOAA-20 NOAA-21",
-        "url": "https://firms.modaps.eosdis.nasa.gov/mapserver/wfs/USA_contiguous_and_Hawaii/8c41a3efcb377394cacd774d0d2906b1/",
-        "tipo": "viirs"
-    }
-]
-
-# URLs directas de los Feature Services de NASA FIRMS (ArcGIS REST)
 FIRMS_REST_SERVICES = [
     {
         "nombre": "VIIRS SNPP NRT",
-        "url": "https://firms.modaps.eosdis.nasa.gov/api/area/csv/8c41a3efcb377394cacd774d0d2906b1/VIIRS_SNPP_NRT/{bbox}/2",
+        "url": "https://firms.modaps.eosdis.nasa.gov/api/area/csv/8c41a3efcb377394cacd774d0d2906b1/VIIRS_SNPP_NRT/{bbox}/1",
         "sensor": "VIIRS S-NPP"
     },
     {
         "nombre": "VIIRS NOAA-20 NRT",
-        "url": "https://firms.modaps.eosdis.nasa.gov/api/area/csv/8c41a3efcb377394cacd774d0d2906b1/VIIRS_NOAA20_NRT/{bbox}/2",
+        "url": "https://firms.modaps.eosdis.nasa.gov/api/area/csv/8c41a3efcb377394cacd774d0d2906b1/VIIRS_NOAA20_NRT/{bbox}/1",
         "sensor": "VIIRS NOAA-20"
     },
     {
         "nombre": "VIIRS NOAA-21 NRT",
-        "url": "https://firms.modaps.eosdis.nasa.gov/api/area/csv/8c41a3efcb377394cacd774d0d2906b1/VIIRS_NOAA21_NRT/{bbox}/2",
+        "url": "https://firms.modaps.eosdis.nasa.gov/api/area/csv/8c41a3efcb377394cacd774d0d2906b1/VIIRS_NOAA21_NRT/{bbox}/1",
         "sensor": "VIIRS NOAA-21"
     },
     {
         "nombre": "MODIS NRT",
-        "url": "https://firms.modaps.eosdis.nasa.gov/api/area/csv/8c41a3efcb377394cacd774d0d2906b1/MODIS_NRT/{bbox}/2",
+        "url": "https://firms.modaps.eosdis.nasa.gov/api/area/csv/8c41a3efcb377394cacd774d0d2906b1/MODIS_NRT/{bbox}/1",
         "sensor": "MODIS"
     },
     {
         "nombre": "Landsat NRT",
-        "url": "https://firms.modaps.eosdis.nasa.gov/api/area/csv/8c41a3efcb377394cacd774d0d2906b1/LANDSAT_NRT/{bbox}/3",
+        "url": "https://firms.modaps.eosdis.nasa.gov/api/area/csv/8c41a3efcb377394cacd774d0d2906b1/LANDSAT_NRT/{bbox}/1",
         "sensor": "Landsat"
     },
 ]
@@ -59,10 +48,9 @@ def log(msg, level="INFO"):
 
 def descargar_focos():
     log("=" * 55)
-    log("Colorado Wildfire Monitor - NASA FIRMS Direct")
+    log("Colorado Wildfire Monitor - NASA FIRMS 24HRS")
     log("=" * 55)
     todos = []
-
     for svc in FIRMS_REST_SERVICES:
         url = svc["url"].replace("{bbox}", CO_BBOX_GEOM)
         try:
@@ -82,7 +70,6 @@ def descargar_focos():
             log(f"  {svc['nombre']}: {len(todos)-n} detecciones")
         except Exception as e:
             log(f"  {svc['nombre']}: error - {e}", "WARN")
-
     log(f"Total focos: {len(todos)}")
     return todos
 
