@@ -1,17 +1,56 @@
+"""
+Colorado Wildfire Monitor
+Lee directamente del Feature Service oficial NASA FIRMS
+Identico al visor nasa firms - mismos datos, misma fuente
+"""
 import requests, json, datetime, os
 
-NASA_API_KEY  = os.environ["NASA_FIRMS_API_KEY"]
 AGOL_USERNAME = os.environ["AGOL_USERNAME"]
 AGOL_PASSWORD = os.environ["AGOL_PASSWORD"]
 AGOL_LAYER_ID = os.environ["AGOL_LAYER_ID"]
 
-CO_BBOX = "-109.060253,36.992426,-102.041524,41.003444"
+# Bounding box Colorado
+CO_BBOX_GEOM = "-109.060253,36.992426,-102.041524,41.003444"
+CO_LAT_MIN, CO_LAT_MAX = 36.99, 41.01
+CO_LON_MIN, CO_LON_MAX = -109.07, -102.04
 
-FIRMS_SOURCES = [
-    ("VIIRS_SNPP_NRT",   "VIIRS S-NPP",   1),
-    ("VIIRS_NOAA20_NRT", "VIIRS NOAA-20", 1),
-    ("MODIS_NRT",        "MODIS",         1),
-    ("LANDSAT_NRT",      "Landsat",       3),
+# Feature Services oficiales NASA FIRMS
+# Exactamente los mismos que usa el visor firms.modaps.eosdis.nasa.gov
+NASA_SERVICES = [
+    {
+        "nombre": "VIIRS S-NPP NOAA-20 NOAA-21",
+        "url": "https://firms.modaps.eosdis.nasa.gov/mapserver/wfs/USA_contiguous_and_Hawaii/8c41a3efcb377394cacd774d0d2906b1/",
+        "tipo": "viirs"
+    }
+]
+
+# URLs directas de los Feature Services de NASA FIRMS (ArcGIS REST)
+FIRMS_REST_SERVICES = [
+    {
+        "nombre": "VIIRS SNPP NRT",
+        "url": "https://firms.modaps.eosdis.nasa.gov/api/area/csv/8c41a3efcb377394cacd774d0d2906b1/VIIRS_SNPP_NRT/{bbox}/2",
+        "sensor": "VIIRS S-NPP"
+    },
+    {
+        "nombre": "VIIRS NOAA-20 NRT",
+        "url": "https://firms.modaps.eosdis.nasa.gov/api/area/csv/8c41a3efcb377394cacd774d0d2906b1/VIIRS_NOAA20_NRT/{bbox}/2",
+        "sensor": "VIIRS NOAA-20"
+    },
+    {
+        "nombre": "VIIRS NOAA-21 NRT",
+        "url": "https://firms.modaps.eosdis.nasa.gov/api/area/csv/8c41a3efcb377394cacd774d0d2906b1/VIIRS_NOAA21_NRT/{bbox}/2",
+        "sensor": "VIIRS NOAA-21"
+    },
+    {
+        "nombre": "MODIS NRT",
+        "url": "https://firms.modaps.eosdis.nasa.gov/api/area/csv/8c41a3efcb377394cacd774d0d2906b1/MODIS_NRT/{bbox}/2",
+        "sensor": "MODIS"
+    },
+    {
+        "nombre": "Landsat NRT",
+        "url": "https://firms.modaps.eosdis.nasa.gov/api/area/csv/8c41a3efcb377394cacd774d0d2906b1/LANDSAT_NRT/{bbox}/3",
+        "sensor": "Landsat"
+    },
 ]
 
 def log(msg, level="INFO"):
@@ -19,26 +58,31 @@ def log(msg, level="INFO"):
     print(f"[{ts}] [{level}] {msg}", flush=True)
 
 def descargar_focos():
-    log("Descargando focos NASA FIRMS para Colorado...")
+    log("=" * 55)
+    log("Colorado Wildfire Monitor - NASA FIRMS Direct")
+    log("=" * 55)
     todos = []
-    for source, nombre, dias in FIRMS_SOURCES:
-        url = (f"https://firms.modaps.eosdis.nasa.gov/api/area/csv/"
-               f"{NASA_API_KEY}/{source}/{CO_BBOX}/{dias}")
+
+    for svc in FIRMS_REST_SERVICES:
+        url = svc["url"].replace("{bbox}", CO_BBOX_GEOM)
         try:
             resp = requests.get(url, timeout=30)
             resp.raise_for_status()
             lineas = resp.text.strip().split("\n")
             if len(lineas) < 2:
-                log(f"  {nombre}: sin datos", "WARN"); continue
+                log(f"  {svc['nombre']}: sin datos", "WARN"); continue
             cab = lineas[0].split(",")
             n   = len(todos)
             for l in lineas[1:]:
                 vals = l.split(",")
                 if len(vals) >= 2:
-                    f = dict(zip(cab, vals)); f["sensor"] = nombre; todos.append(f)
-            log(f"  {nombre} ({dias}d): {len(todos)-n} detecciones")
+                    f = dict(zip(cab, vals))
+                    f["sensor"] = svc["sensor"]
+                    todos.append(f)
+            log(f"  {svc['nombre']}: {len(todos)-n} detecciones")
         except Exception as e:
-            log(f"  {nombre}: error - {e}", "ERROR")
+            log(f"  {svc['nombre']}: error - {e}", "WARN")
+
     log(f"Total focos: {len(todos)}")
     return todos
 
@@ -49,12 +93,14 @@ def focos_a_esri(focos):
         try:
             lat = float(f.get("latitude", 0))
             lon = float(f.get("longitude", 0))
-            if not (36.99 <= lat <= 41.01 and -109.07 <= lon <= -102.04): continue
+            if not (CO_LAT_MIN <= lat <= CO_LAT_MAX and
+                    CO_LON_MIN <= lon <= CO_LON_MAX): continue
             clave = f"{round(lat,3)}_{round(lon,3)}_{f.get('acq_date','')}"
             if clave in vistos: continue
             vistos.add(clave)
             features.append({
-                "geometry": {"x": lon, "y": lat, "spatialReference": {"wkid": 4326}},
+                "geometry": {"x": lon, "y": lat,
+                             "spatialReference": {"wkid": 4326}},
                 "attributes": {
                     "sensor":      f.get("sensor", ""),
                     "bright_ti4":  f.get("bright_ti4", f.get("brightness", "")),
@@ -73,16 +119,19 @@ def focos_a_esri(focos):
 
 def obtener_token():
     log("Autenticando ArcGIS Online...")
-    resp = requests.post("https://www.arcgis.com/sharing/rest/generateToken",
+    resp = requests.post(
+        "https://www.arcgis.com/sharing/rest/generateToken",
         data={"username": AGOL_USERNAME, "password": AGOL_PASSWORD,
-              "referer": "https://www.arcgis.com", "expiration": 60, "f": "json"}, timeout=30)
+              "referer": "https://www.arcgis.com", "expiration": 60,
+              "f": "json"}, timeout=30)
     resp.raise_for_status()
     data = resp.json()
     if "error" in data: raise RuntimeError(f"Auth: {data['error']}")
     log("Token OK"); return data["token"]
 
 def obtener_url_servicio(token):
-    resp = requests.get(f"https://www.arcgis.com/sharing/rest/content/items/{AGOL_LAYER_ID}",
+    resp = requests.get(
+        f"https://www.arcgis.com/sharing/rest/content/items/{AGOL_LAYER_ID}",
         params={"token": token, "f": "json"}, timeout=30)
     resp.raise_for_status()
     url = resp.json().get("url", "")
@@ -90,7 +139,7 @@ def obtener_url_servicio(token):
     log(f"Servicio: {url}"); return url
 
 def borrar_features(url_svc, token):
-    log("Borrando features anteriores...")
+    log("Borrando anteriores...")
     resp = requests.post(f"{url_svc}/0/deleteFeatures",
         data={"where": "1=1", "token": token, "f": "json"}, timeout=30)
     resp.raise_for_status()
@@ -103,25 +152,23 @@ def publicar_features(url_svc, token, features):
     for i in range(0, len(features), 200):
         lote = features[i:i+200]
         resp = requests.post(f"{url_svc}/0/addFeatures",
-            data={"features": json.dumps(lote), "token": token, "f": "json"}, timeout=60)
+            data={"features": json.dumps(lote), "token": token,
+                  "f": "json"}, timeout=60)
         resp.raise_for_status()
         ok = sum(1 for r in resp.json().get("addResults", []) if r.get("success"))
         total += ok; log(f"  Lote {i//200+1}: {ok}/{len(lote)}")
     log(f"Total: {total}"); return total
 
 def main():
-    log("=" * 50)
-    log("Colorado Wildfire Monitor - NASA FIRMS Update")
-    log("=" * 50)
     focos    = descargar_focos()
     features = focos_a_esri(focos)
     token    = obtener_token()
     url_svc  = obtener_url_servicio(token)
     borrar_features(url_svc, token)
     n = publicar_features(url_svc, token, features)
-    log("=" * 50)
+    log("=" * 55)
     log(f"COMPLETADO - {n} focos en ArcGIS Online")
-    log("=" * 50)
+    log("=" * 55)
 
 if __name__ == "__main__":
     main()
