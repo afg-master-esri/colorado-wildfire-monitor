@@ -7,9 +7,11 @@ AGOL_LAYER_ID = os.environ["AGOL_LAYER_ID"]
 
 CO_BBOX = "-109.060253,36.992426,-102.041524,41.003444"
 FIRMS_SOURCES = [
-    ("VIIRS_SNPP_NRT",    "VIIRS S-NPP"),
-    ("VIIRS_NOAA20_NRT",  "VIIRS NOAA-20"),
-    ("MODIS_NRT",         "MODIS Aqua & Terra"),
+    ("LANDSAT_NRT",      "Landsat 30m",      3),
+    ("VIIRS_SNPP_NRT",   "VIIRS S-NPP",      2),
+    ("VIIRS_NOAA20_NRT", "VIIRS NOAA-20",    2),
+    ("VIIRS_NOAA21_NRT", "VIIRS NOAA-21",    2),
+    ("MODIS_NRT",        "MODIS Aqua+Terra", 2),
 ]
 
 SERVICIOS_POLIGONOS = [
