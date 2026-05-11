@@ -7,11 +7,14 @@ AGOL_LAYER_ID = os.environ["AGOL_LAYER_ID"]
 
 CO_BBOX = "-109.060253,36.992426,-102.041524,41.003444"
 
+# Exactamente las mismas fuentes que NASA FIRMS visor en modo 2 DAYS
+# Landsat [30m] + VIIRS (S-NPP, NOAA-20 & NOAA-21) [375m] + MODIS [1km]
 FIRMS_SOURCES = [
-    ("VIIRS_SNPP_NRT",   "VIIRS S-NPP",   2),
-    ("VIIRS_NOAA20_NRT", "VIIRS NOAA-20", 2),
-    ("MODIS_NRT",        "MODIS",         2),
-    ("LANDSAT_NRT",      "Landsat",       2),
+    ("LANDSAT_NRT",      "Landsat 30m",      2),
+    ("VIIRS_SNPP_NRT",   "VIIRS S-NPP",      2),
+    ("VIIRS_NOAA20_NRT", "VIIRS NOAA-20",    2),
+    ("VIIRS_NOAA21_NRT", "VIIRS NOAA-21",    2),
+    ("MODIS_NRT",        "MODIS Aqua+Terra", 2),
 ]
 
 def log(msg, level="INFO"):
@@ -19,7 +22,10 @@ def log(msg, level="INFO"):
     print(f"[{ts}] [{level}] {msg}", flush=True)
 
 def descargar_focos():
-    log("Descargando focos NASA FIRMS - Colorado (2 dias)...")
+    log("=" * 55)
+    log("Colorado Wildfire Monitor — NASA FIRMS 2 DAYS")
+    log("Fuentes: Landsat + VIIRS S-NPP/NOAA-20/NOAA-21 + MODIS")
+    log("=" * 55)
     todos = []
     for source, nombre, dias in FIRMS_SOURCES:
         url = (f"https://firms.modaps.eosdis.nasa.gov/api/area/csv/"
@@ -39,7 +45,7 @@ def descargar_focos():
             log(f"  {nombre} ({dias}d): {len(todos)-n} detecciones")
         except Exception as e:
             log(f"  {nombre}: error - {e}", "ERROR")
-    log(f"Total focos: {len(todos)}")
+    log(f"Total focos descargados: {len(todos)}")
     return todos
 
 def focos_a_esri(focos):
@@ -50,6 +56,7 @@ def focos_a_esri(focos):
             lat = float(f.get("latitude", 0))
             lon = float(f.get("longitude", 0))
             if not (36.99 <= lat <= 41.01 and -109.07 <= lon <= -102.04): continue
+            # Deduplicar por posicion y fecha
             clave = f"{round(lat,3)}_{round(lon,3)}_{f.get('acq_date','')}"
             if clave in vistos: continue
             vistos.add(clave)
@@ -68,7 +75,7 @@ def focos_a_esri(focos):
                 }
             })
         except: continue
-    log(f"Focos unicos Colorado: {len(features)}")
+    log(f"Focos unicos en Colorado: {len(features)}")
     return features
 
 def obtener_token():
@@ -90,7 +97,7 @@ def obtener_url_servicio(token):
     log(f"Servicio: {url}"); return url
 
 def borrar_features(url_svc, token):
-    log("Borrando anteriores...")
+    log("Borrando features anteriores...")
     resp = requests.post(f"{url_svc}/0/deleteFeatures",
         data={"where": "1=1", "token": token, "f": "json"}, timeout=30)
     resp.raise_for_status()
@@ -107,21 +114,18 @@ def publicar_features(url_svc, token, features):
         resp.raise_for_status()
         ok = sum(1 for r in resp.json().get("addResults", []) if r.get("success"))
         total += ok; log(f"  Lote {i//200+1}: {ok}/{len(lote)}")
-    log(f"Total: {total}"); return total
+    log(f"Total publicados: {total}"); return total
 
 def main():
-    log("=" * 50)
-    log("Colorado Wildfire Monitor — NASA FIRMS Update")
-    log("=" * 50)
     focos    = descargar_focos()
     features = focos_a_esri(focos)
     token    = obtener_token()
     url_svc  = obtener_url_servicio(token)
     borrar_features(url_svc, token)
     n = publicar_features(url_svc, token, features)
-    log("=" * 50)
+    log("=" * 55)
     log(f"COMPLETADO - {n} focos en ArcGIS Online")
-    log("=" * 50)
+    log("=" * 55)
 
 if __name__ == "__main__":
     main()
